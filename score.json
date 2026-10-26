@@ -1,0 +1,55 @@
+{
+  "title": "万籁同源",
+  "author": "晨星",
+  "bpm_plan": [
+    56,
+    72,
+    96,
+    132,
+    108,
+    80
+  ],
+  "modes": {
+    "lonely": "D 羽 (D F G A C)",
+    "unity": "D 宫 (D E F# A B)"
+  },
+  "signature_lonely": [
+    "D4",
+    "F4",
+    "G4",
+    "A4",
+    "C5",
+    "A4",
+    "G4",
+    "F4",
+    "D4",
+    null,
+    "G4",
+    "A4",
+    "C5",
+    "A4",
+    "G4",
+    "D4"
+  ],
+  "signature_unity": [
+    "D4",
+    "E4",
+    "F#4",
+    "A4",
+    "B4",
+    "A4",
+    "F#4",
+    "E4",
+    "D4",
+    null,
+    "F#4",
+    "A4",
+    "B4",
+    "A4",
+    "F#4",
+    "D4"
+  ],
+  "events": 279,
+  "chords": 15,
+  "sample_rate": 44100
+}
