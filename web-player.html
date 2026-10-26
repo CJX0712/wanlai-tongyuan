@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>万籁同源 · 算法交响 / Universal Resonance</title>
+<style>
+  :root{
+    --bg:#07080f; --panel:#0e1120; --ink:#e8ecff; --dim:#8a93b8;
+    --accent:#5ad1ff; --accent2:#9b8cff; --gold:#ffd479;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:radial-gradient(1200px 800px at 70% -10%,#16203f 0%,var(--bg) 60%);color:var(--ink);
+    font-family:-apple-system,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif}
+  .wrap{max-width:980px;margin:0 auto;padding:28px 20px 60px}
+  h1{font-size:30px;margin:0 0 4px;letter-spacing:2px;background:linear-gradient(90deg,var(--accent),var(--accent2),var(--gold));
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{color:var(--dim);font-size:13px;letter-spacing:1px;margin-bottom:18px}
+  .panel{background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.01));
+    border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:18px;margin-bottom:16px;backdrop-filter:blur(6px)}
+  canvas{width:100%;display:block;border-radius:12px;background:#05060c}
+  .controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+  button{cursor:pointer;border:1px solid rgba(255,255,255,.14);background:linear-gradient(180deg,#1a2140,#11152b);
+    color:var(--ink);padding:11px 18px;border-radius:11px;font-size:14px;letter-spacing:1px;transition:.15s}
+  button:hover{border-color:var(--accent);box-shadow:0 0 16px rgba(90,209,255,.25)}
+  button.primary{background:linear-gradient(180deg,#2b6cff,#1c47c8);border-color:#3b7bff}
+  input[type=range]{accent-color:var(--accent);width:160px}
+  .mv{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+  .chip{font-size:12px;padding:7px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.12);
+    background:rgba(255,255,255,.03);color:var(--dim);transition:.15s}
+  .chip.active{color:#06101f;background:linear-gradient(90deg,var(--accent),var(--accent2));border-color:transparent;font-weight:700}
+  .status{font-size:13px;color:var(--dim);margin-top:10px;line-height:1.7}
+  .status b{color:var(--ink)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:6px}
+  .card{border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px;background:rgba(255,255,255,.02)}
+  .card h3{margin:0 0 4px;font-size:14px;color:var(--accent)}
+  .card p{margin:0;font-size:12px;color:var(--dim);line-height:1.6}
+  .badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:6px;background:rgba(255,212,121,.12);color:var(--gold);margin-left:6px}
+  a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>万籁同源 <span class="badge">算法交响 · 纯合成</span></h1>
+  <div class="sub">UNIVERSAL RESONANCE — 一首由世界顶级数学与算法生成的交响曲 / 作者：晨星 ✦</div>
+
+  <div class="panel">
+    <canvas id="viz" height="240"></canvas>
+    <div class="controls" style="margin-top:14px">
+      <button id="play" class="primary">▶ 播放</button>
+      <button id="export">⭳ 导出 WAV</button>
+      <label style="font-size:13px;color:var(--dim)">音量</label>
+      <input id="vol" type="range" min="0" max="1" step="0.01" value="0.85">
+      <span id="clock" style="font-size:13px;color:var(--dim);margin-left:auto">00:00 / 00:00</span>
+    </div>
+    <div class="mv" id="moves"></div>
+    <div class="status" id="status">点击「播放」开始（浏览器需用户手势启动音频）。全部声音由 Web Audio API 实时合成，零采样、可复现。</div>
+  </div>
+
+  <div class="panel">
+    <div style="font-size:15px;color:var(--ink);margin-bottom:4px">五大乐章 · 五种算法</div>
+    <div class="grid" id="algoCards"></div>
+  </div>
+
+  <div class="panel">
+    <div style="font-size:13px;color:var(--dim);line-height:1.8">
+      本曲 <b style="color:var(--ink)">无任何音频采样</b>，所有音色（铺底 / 拨弦 / 主旋律 / 贝斯 / 鼓组 / 谢泼德音阶）均由振荡器与滤波器实时合成；
+      乐谱由<b style="color:var(--ink)">确定性算法</b>（种子固定）生成，可复现、可验证。
+      使用的数学与算法：黄金比例 φ 与斐波那契/卢卡斯数列、欧几里得节奏（Bjorklund 算法）、
+      康威生命游戏元胞自动机、洛伦兹混沌吸引子、曼德博集合分形、马尔可夫链、谢泼德音调错觉、纯律五声音阶。
+      完整文档见 README。
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================================
+   万籁同源 / Universal Resonance
+   作者：晨星 (CJX0712) — MIT License
+   一种用世界顶级数学与算法生成的五乐章算法交响。
+   全曲零采样：所有声音由 Web Audio API 实时合成，乐谱由确定性算法生成。
+   ========================================================================== */
+
+/* ---------------------- 数学与算法原语 ---------------------- */
+
+// 确定性随机数（mulberry32），保证乐谱可复现
+function mulberry32(seed){
+  return function(){
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const PHI = (1 + Math.sqrt(5)) / 2;            // 黄金比例
+const RATIOS = [1, 9/8, 5/4, 3/2, 5/3];        // 纯律五声音阶（宫商角徵羽）
+
+// 五声音阶音符：root 为基准频率，deg 为度数（可正可负，自动换算八度）
+function penta(root, deg){
+  const oct = Math.floor(deg / 5);
+  const step = ((deg % 5) + 5) % 5;
+  return root * RATIOS[step] * Math.pow(2, oct);
+}
+function clampDeg(d){ return ((d % 10) + 10) % 10; }
+
+// 欧几里得节奏（Bjorklund 算法）：在 steps 步内均匀分布 pulses 个击点
+function bjorklund(pulses, steps){
+  pulses = Math.round(pulses); steps = Math.round(steps);
+  if(pulses <= 0) return new Array(steps).fill(false);
+  if(pulses >= steps) return new Array(steps).fill(true);
+  let pattern = [], counts = [], remainders = [], divisor = steps - pulses;
+  remainders.push(pulses);
+  let level = 0;
+  while(true){
+    counts.push(Math.floor(divisor / remainders[level]));
+    remainders.push(divisor % remainders[level]);
+    divisor = remainders[level];
+    level++;
+    if(remainders[level] <= 1) break;
+  }
+  counts.push(divisor);
+  function build(lv){
+    if(lv === -1){ pattern.push(0); }
+    else if(lv === -2){ pattern.push(1); }
+    else {
+      for(let i=0;i<counts[lv];i++) build(lv-1);
+      if(remainders[lv] !== 0) build(lv-2);
+    }
+  }
+  build(level);
+  const i = pattern.indexOf(1);
+  pattern = pattern.slice(i).concat(pattern.slice(0, i));
+  return pattern.map(b => b === 1);
+}
+
+// 康威生命游戏一步（环形边界）
+function golStep(g){
+  const R = g.length, C = g[0].length, ng = g.map(r => r.slice());
+  for(let y=0;y<R;y++) for(let x=0;x<C;x++){
+    let n=0;
+    for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){
+      if(dx||dy){ n += g[(y+dy+R)%R][(x+dx+C)%C]; }
+    }
+    ng[y][x] = (g[y][x] && (n===2||n===3)) || (!g[y][x] && n===3) ? 1 : 0;
+  }
+  return ng;
+}
+
+// 洛伦兹吸引子：生成每拍采样点（混沌来源）
+function lorenz(samples, dt, stepPerSample){
+  const pts = []; let s = {x:0.1, y:0, z:0};
+  const sigma=10, rho=28, beta=8/3;
+  for(let i=0;i<samples;i++){
+    for(let k=0;k<stepPerSample;k++){
+      const dx = sigma*(s.y - s.x);
+      const dy = s.x*(rho - s.z) - s.y;
+      const dz = s.x*s.y - beta*s.z;
+      s = {x:s.x+dx*dt, y:s.y+dy*dt, z:s.z+dz*dt};
+    }
+    pts.push(s.x);
+  }
+  return pts;
+}
+
+// 曼德博集合：返回逃逸迭代次数（分形强度来源）
+function mandelIter(cx, cy, maxIter){
+  let x=0,y=0,i=0;
+  while(i<maxIter && x*x+y*y<=4){ const xt=x*x-y*y+cx; y=2*x*y+cy; x=xt; i++; }
+  return i;
+}
+
+// 马尔可夫链：在 10 个度数上做带“主音引力”的随机游走（合一乐章）
+function buildMarkov(){
+  const N=10, m=[];
+  for(let i=0;i<N;i++){
+    m[i]=[];
+    for(let j=0;j<N;j++){
+      let w=1;
+      const d=Math.abs(j-i);
+      if(d===0) w+=2; if(d===1) w+=3; if(d===2) w+=1.5;
+      if(j===0) w+=4;                 // 主音（宫）强吸引
+      if(j<i && j<3) w+=1;            // 向下回归
+      m[i][j]=w;
+    }
+  }
+  return m;
+}
+function nextMarkov(m, deg, rng){
+  const row=m[deg], tot=row.reduce((a,b)=>a+b,0);
+  let r=rng()*tot, j=0;
+  while(j<row.length-1 && (r-=row[j])>0) j++;
+  return j;
+}
+
+/* ---------------------- 乐谱生成（确定性） ---------------------- */
+
+function generateScore(){
+  const rng = mulberry32(20261027);   // 固定种子 → 可复现
+  const root = 130.81;                // C3
+  const events = [], movements = [];
+  let t = 0;
+
+  /* 第一乐章 · 静谧 —— 黄金比例 / 卢卡斯数列 / 谢泼德音阶 */
+  {
+    const start=t, len=70;
+    events.push({t, voice:'pad', freq:root, dur:len, gain:0.12, wet:0.6}); // 持续低音垫
+    let ct=t;
+    while(ct < t+len-2){
+      const baseDeg=[0,2,3,7,9][Math.floor(rng()*5)];
+      [0,2,3].forEach(off=>events.push({t:ct, voice:'pad',
+        freq:penta(root, baseDeg+off+(rng()<0.5?0:5)), dur:14, gain:0.07, wet:0.7}));
+      ct += 14;
+    }
+    let st=t, idx=0;                                          // 谢泼德：相邻略微升调 → 理发店柱上升错觉
+    while(st < t+len){ events.push({t:st, voice:'shepard', freq:root*2*Math.pow(2,0.06*idx), dur:11, gain:0.05, wet:0.5}); st+=8; idx++; }
+    const lucas=[2,1,3,4,7,11,18,29,47]; let bt=t+2;          // 卢卡斯数列控制风铃时机
+    for(const L of lucas){ if(bt>t+len-3) break;
+      events.push({t:bt, voice:'pluck', freq:penta(root, Math.floor(rng()*10)+12), dur:3, gain:0.09, wet:0.85}); bt+=L*0.8; }
+    t+=len;
+    movements.push({name:'静谧 · Tranquility', start, len,
+      algo:'黄金比例 φ · 卢卡斯数列 · 谢泼德音调错觉', color:'#5ad1ff'});
+  }
+
+  /* 第二乐章 · 萌动 —— 生命游戏元胞自动机 / 欧几里得节奏 */
+  {
+    const start=t, len=80, bpm=90, beat=60/bpm, step=beat/4;
+    const bars=Math.floor(len/(beat*4));
+    let grid=[]; for(let r=0;r<8;r++){ grid[r]=[]; for(let c=0;c<16;c++) grid[r][c]= rng()<0.35?1:0; }
+    let chordDeg=0;
+    for(let b=0;b<bars;b++){
+      const barT=t+b*beat*4;
+      if(b%2===0){ [0,2,3].forEach(off=>events.push({t:barT, voice:'pad',
+        freq:penta(root, chordDeg+off+5), dur:beat*8, gain:0.06, wet:0.6})); }
+      for(let c=0;c<16;c++) for(let r=0;r<8;r++){           // 元胞自动机：行=音高，列=16分音符
+        if(grid[r][c]) events.push({t:barT+c*step, voice:'pluck',
+          freq:penta(root, clampDeg(r+chordDeg)+(c%2?5:0)), dur:step*1.6, gain:0.08, wet:0.4});
+      }
+      const eb=bjorklund(4,16);                              // 贝斯：E(4,16) 四踩
+      for(let c=0;c<16;c++) if(eb[c]) events.push({t:barT+c*step, voice:'bass', freq:penta(root,chordDeg), dur:step*2, gain:0.13});
+      const el=bjorklund(3,16);                              // 主旋律：E(3,16)
+      for(let c=0;c<16;c++) if(el[c]) events.push({t:barT+c*step, voice:'lead',
+        freq:penta(root, chordDeg+(rng()<0.5?2:7)), dur:step*1.2, gain:0.05});
+      grid=golStep(grid); chordDeg = (chordDeg + (rng()<0.5?2:3)) % 10;
+    }
+    t+=len;
+    movements.push({name:'萌动 · Awakening', start, len,
+      algo:'康威生命游戏元胞自动机 · 欧几里得节奏 (Bjorklund)', color:'#5be39a'});
+  }
+
+  /* 第三乐章 · 冲突 —— 洛伦兹混沌吸引子 */
+  {
+    const start=t, len=90, bpm=112, beat=60/bpm, step=beat/4;
+    const bars=Math.floor(len/(beat*4));
+    const lz=lorenz(bars*4+4, 0.012, Math.round(beat/0.012)); // 每拍一个混沌采样
+    let chordDeg=0;
+    for(let b=0;b<bars;b++){
+      const barT=t+b*beat*4;
+      for(let k=0;k<4;k++){
+        const idx=b*4+k, x=lz[idx];
+        const degA=clampDeg(Math.round(x*1.2))+chordDeg;
+        const degB=clampDeg(-Math.round(x*0.9))+(chordDeg+3);
+        const when=barT+k*beat;
+        // 双声部镜像对抗 + 轻微失谐制造拍频张力
+        events.push({t:when, voice:'lead', freq:penta(root,degA), dur:beat*0.9, gain:0.06, detune:9});
+        events.push({t:when+beat*0.5, voice:'lead', freq:penta(root,degB), dur:beat*0.9, gain:0.06, detune:-9});
+      }
+      const ek=bjorklund(4,16);
+      for(let c=0;c<16;c++) if(ek[c]) events.push({t:barT+c*step, voice:'kick', gain:0.9});
+      [4,12].forEach(c=>events.push({t:barT+c*step, voice:'snare', gain:0.5, wet:0.2}));
+      if(b%2===0) [0,2,3].forEach(off=>events.push({t:barT, voice:'pad',
+        freq:penta(root, chordDeg+off+5), dur:beat*4, gain:0.05, wet:0.5}));
+      chordDeg = ((chordDeg + (rng()<0.5?2:-1)) % 10 + 10) % 10;
+    }
+    t+=len;
+    movements.push({name:'冲突 · Conflict', start, len,
+      algo:'洛伦兹混沌吸引子 (Lorenz Attractor)', color:'#ff7a7a'});
+  }
+
+  /* 第四乐章 · 爆发 —— 曼德博集合分形 */
+  {
+    const start=t, len=100, bpm=140, beat=60/bpm, step=beat/4;
+    const bars=Math.floor(len/(beat*4));
+    for(let b=0;b<bars;b++){
+      const barT=t+b*beat*4;
+      const cx=-0.75+(rng()-0.5)*0.30, cy=(rng()-0.5)*0.30;  // 边界附近 → 高逃逸迭代
+      const it=mandelIter(cx,cy,60), density=it/60;
+      const notes=4+Math.floor(density*12);                  // 分形强度 → 琶音密度
+      for(let n=0;n<notes;n++){
+        const when=barT+(n/notes)*beat*4;
+        events.push({t:when, voice:'lead', freq:penta(root, (n*2)%10+5), dur:step*1.2, gain:0.05, bright:true});
+      }
+      for(let c=0;c<8;c++) events.push({t:barT+c*step*2, voice:'bass',
+        freq:penta(root, c%4===0?0:3), dur:step*1.5, gain:0.12});
+      const ek=bjorklund(4,16);
+      for(let c=0;c<16;c++) if(ek[c]) events.push({t:barT+c*step, voice:'kick', gain:0.95});
+      [4,12].forEach(c=>events.push({t:barT+c*step, voice:'snare', gain:0.55, wet:0.2}));
+      const eh=bjorklund(12,16);
+      for(let c=0;c<16;c++) if(eh[c]) events.push({t:barT+c*step, voice:'hat', gain:0.22});
+      if(b%2===0) [0,2,3].forEach(off=>events.push({t:barT, voice:'pad',
+        freq:penta(root, off+5), dur:beat*4, gain:0.05, wet:0.5}));
+    }
+    t+=len;
+    movements.push({name:'爆发 · Eruption', start, len,
+      algo:'曼德博集合分形 (Mandelbrot Set)', color:'#ffd479'});
+  }
+
+  /* 第五乐章 · 合一 —— 马尔可夫链收束于主音 */
+  {
+    const start=t, len=70, bpm=100, beat=60/bpm;
+    const mat=buildMarkov(); let deg=0, tt=t;
+    const total=80;
+    for(let i=0;i<total;i++){
+      events.push({t:tt, voice:'lead', freq:penta(root, deg+(i%4===0?12:5)), dur:beat*0.9, gain:0.07, wet:0.3});
+      if(i%2===0) events.push({t:tt, voice:'pad', freq:penta(root,deg), dur:beat*1.6, gain:0.05, wet:0.5});
+      deg=nextMarkov(mat, deg, rng);
+      tt += beat*(rng()<0.3?0.5:1);
+    }
+    const finT=t+len-12;                                      // 终和弦：纯律 C 大调五声叠置
+    [0,2,3,5,7].forEach(off=>events.push({t:finT, voice:'pad', freq:penta(root,off), dur:14, gain:0.10, wet:0.85}));
+    events.push({t:finT, voice:'shepard', freq:root*2, dur:12, gain:0.05, wet:0.6});
+    events.push({t:finT, voice:'bass', freq:root, dur:14, gain:0.12});
+    t+=len;
+    movements.push({name:'合一 · Unity', start, len,
+      algo:'马尔可夫链 · 主音引力收束', color:'#9b8cff'});
+  }
+
+  events.sort((a,b)=>a.t-b.t);
+  return {duration:t, events, movements, root};
+}
+
+/* ---------------------- 音频引擎（合成器） ---------------------- */
+
+function makeIR(ctx, seconds, decay){
+  const rate=ctx.sampleRate, len=Math.floor(rate*seconds);
+  const buf=ctx.createBuffer(2, len, rate);
+  for(let ch=0;ch<2;ch++){ const d=buf.getChannelData(ch);
+    for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len, decay); }
+  return buf;
+}
+function makeNoise(ctx, sec){
+  const rate=ctx.sampleRate, len=Math.floor(rate*sec);
+  const b=ctx.createBuffer(1, len, rate), d=b.getChannelData(0);
+  for(let i=0;i<len;i++) d[i]=Math.random()*2-1;
+  return b;
+}
+function createEngine(ctx, reverbSec, withAnalyser){
+  const master=ctx.createGain(); master.gain.value=0.9;
+  const comp=ctx.createDynamicsCompressor(); comp.threshold.value=-12; comp.ratio.value=4; comp.attack.value=0.005; comp.release.value=0.25;
+  const reverb=ctx.createConvolver(); reverb.buffer=makeIR(ctx, reverbSec, 2.6);
+  const wet=ctx.createGain(); wet.gain.value=0.9; reverb.connect(wet); wet.connect(master);
+  master.connect(comp); comp.connect(ctx.destination);
+  const dry=ctx.createGain(); dry.gain.value=1.0; dry.connect(master);
+  const noiseBuf=makeNoise(ctx, 1.0);
+  let analyser=null;
+  if(withAnalyser){ analyser=ctx.createAnalyser(); analyser.fftSize=2048; comp.connect(analyser); }
+  return {ctx, master, comp, reverb, wet, dry, noiseBuf, analyser};
+}
+function connectOut(e, out, ev){
+  out.connect(e.dry);
+  if(ev.wet){ const sg=e.ctx.createGain(); sg.gain.value=ev.wet; out.connect(sg); sg.connect(e.wet); }
+}
+
+function playPad(e, ev, when){
+  const dur=ev.dur, peak=ev.gain;
+  const g=e.ctx.createGain(); g.gain.value=0;
+  const lp=e.ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1300; lp.Q.value=0.4;
+  g.connect(lp);
+  [-6,0,6].forEach(det=>{
+    const o=e.ctx.createOscillator(); o.type=Math.random()<0.5?'sine':'triangle';
+    o.frequency.value=ev.freq; o.detune.value=det; o.connect(g);
+    o.start(when); o.stop(when+dur+2);
+  });
+  const a=Math.min(2,dur*0.3), r=Math.min(3,dur*0.4);
+  g.gain.setValueAtTime(0,when);
+  g.gain.linearRampToValueAtTime(peak, when+a);
+  g.gain.setValueAtTime(peak, when+Math.max(a, dur-r));
+  g.gain.linearRampToValueAtTime(0, when+dur);
+  connectOut(e, lp, ev);
+}
+function playPluck(e, ev, when){
+  const dur=ev.dur, peak=ev.gain;
+  const g=e.ctx.createGain(); g.gain.value=peak;
+  g.gain.exponentialRampToValueAtTime(0.0001, when+dur);
+  const o=e.ctx.createOscillator(); o.type='triangle'; o.frequency.value=ev.freq;
+  const o2=e.ctx.createOscillator(); o2.type='sine'; o2.frequency.value=ev.freq*2;
+  const g2=e.ctx.createGain(); g2.gain.value=0.3; o2.connect(g2); g2.connect(g);
+  const lp=e.ctx.createBiquadFilter(); lp.type='lowpass';
+  lp.frequency.setValueAtTime(4500,when); lp.frequency.exponentialRampToValueAtTime(800, when+dur);
+  o.connect(g); g.connect(lp); connectOut(e, lp, ev);
+  o.start(when); o.stop(when+dur+0.05); o2.start(when); o2.stop(when+dur+0.05);
+}
+function playLead(e, ev, when){
+  const dur=ev.dur, peak=ev.gain, det=ev.detune||0;
+  const g=e.ctx.createGain(); g.gain.value=0;
+  const o=e.ctx.createOscillator(); o.type='sawtooth'; o.frequency.value=ev.freq; o.detune.value=det;
+  const o3=e.ctx.createOscillator(); o3.type='sawtooth'; o3.frequency.value=ev.freq; o3.detune.value=det+(ev.bright?7:-7);
+  const lp=e.ctx.createBiquadFilter(); lp.type='lowpass';
+  const bF=ev.bright?6000:2500, pF=ev.bright?9000:5000;
+  lp.frequency.setValueAtTime(bF, when); lp.frequency.linearRampToValueAtTime(pF, when+0.05);
+  lp.frequency.exponentialRampToValueAtTime(1500, when+dur);
+  o.connect(g); o3.connect(g); g.connect(lp); connectOut(e, lp, ev);
+  const a=0.01, r=Math.min(0.3,dur*0.5);
+  g.gain.setValueAtTime(0,when); g.gain.linearRampToValueAtTime(peak,when+a);
+  g.gain.setValueAtTime(peak, when+Math.max(a,dur-r)); g.gain.linearRampToValueAtTime(0.0001, when+dur);
+  o.start(when); o3.start(when); o.stop(when+dur+0.05); o3.stop(when+dur+0.05);
+}
+function playBass(e, ev, when){
+  const dur=ev.dur, peak=ev.gain;
+  const g=e.ctx.createGain(); g.gain.value=0;
+  const o=e.ctx.createOscillator(); o.type='sine'; o.frequency.value=ev.freq;
+  const o2=e.ctx.createOscillator(); o2.type='triangle'; o2.frequency.value=ev.freq; o2.detune.value=-4;
+  o.connect(g); o2.connect(g); g.connect(e.dry);
+  const a=0.01, r=Math.min(0.2,dur*0.4);
+  g.gain.setValueAtTime(0,when); g.gain.linearRampToValueAtTime(peak,when+a);
+  g.gain.setValueAtTime(peak, when+Math.max(a,dur-r)); g.gain.linearRampToValueAtTime(0.0001,when+dur);
+  o.start(when); o2.start(when); o.stop(when+dur+0.05); o2.stop(when+dur+0.05);
+}
+function playKick(e, ev, when){
+  const g=e.ctx.createGain(); const g0=ev.gain||0.9;
+  const o=e.ctx.createOscillator(); o.type='sine';
+  const f0=ev.big?160:120;
+  o.frequency.setValueAtTime(f0, when); o.frequency.exponentialRampToValueAtTime(38, when+0.12);
+  g.gain.setValueAtTime(g0, when); g.gain.exponentialRampToValueAtTime(0.0001, when+(ev.big?0.4:0.25));
+  o.connect(g); g.connect(e.dry); o.start(when); o.stop(when+0.5);
+}
+function playSnare(e, ev, when){
+  const dur=0.2, g=e.ctx.createGain(); const g0=ev.gain||0.5;
+  const src=e.ctx.createBufferSource(); src.buffer=e.noiseBuf;
+  const hp=e.ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=1500;
+  src.connect(hp); hp.connect(g);
+  const o=e.ctx.createOscillator(); o.type='triangle'; o.frequency.value=180;
+  const g2=e.ctx.createGain(); g2.gain.value=0.4; o.connect(g2); g2.connect(g);
+  g.gain.setValueAtTime(g0, when); g.gain.exponentialRampToValueAtTime(0.0001, when+dur);
+  o.start(when); o.stop(when+dur); src.start(when); src.stop(when+dur);
+  connectOut(e, g, ev);
+}
+function playHat(e, ev, when){
+  const dur=0.05, g=e.ctx.createGain(); const g0=ev.gain||0.25;
+  const src=e.ctx.createBufferSource(); src.buffer=e.noiseBuf;
+  const hp=e.ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=7000;
+  src.connect(hp); hp.connect(g); g.connect(e.dry);
+  g.gain.setValueAtTime(g0, when); g.gain.exponentialRampToValueAtTime(0.0001, when+dur);
+  src.start(when); src.stop(when+dur+0.02);
+}
+function playShepard(e, ev, when){
+  const dur=ev.dur, peak=ev.gain, base=ev.freq, octs=8;
+  const g=e.ctx.createGain(); g.gain.value=peak;
+  g.gain.setValueAtTime(peak, when); g.gain.setValueAtTime(peak, when+dur*0.5);
+  g.gain.linearRampToValueAtTime(0.0001, when+dur);
+  for(let k=-3;k<octs-3;k++){
+    const f=base*Math.pow(2,k);
+    const o=e.ctx.createOscillator(); o.type='sine'; o.frequency.value=f;
+    const og=e.ctx.createGain();
+    const pos=(k+3)/(octs-1); og.gain.value=Math.exp(-Math.pow((pos-0.5)*3,2))*0.15;
+    o.connect(og); og.connect(g); o.start(when); o.stop(when+dur+0.05);
+  }
+  connectOut(e, g, ev);
+}
+function scheduleEvent(e, ev, when){
+  switch(ev.voice){
+    case 'pad': playPad(e,ev,when); break;
+    case 'pluck': playPluck(e,ev,when); break;
+    case 'lead': playLead(e,ev,when); break;
+    case 'bass': playBass(e,ev,when); break;
+    case 'kick': playKick(e,ev,when); break;
+    case 'snare': playSnare(e,ev,when); break;
+    case 'hat': playHat(e,ev,when); break;
+    case 'shepard': playShepard(e,ev,when); break;
+  }
+}
+
+/* ---------------------- 播放控制 / 可视化 / 导出 ---------------------- */
+
+const score = generateScore();
+let engine=null, audioCtx=null, playing=false, startCtxTime=0, evIdx=0, timer=null, raf=null;
+
+const $ = id => document.getElementById(id);
+const fmt = s => { s=Math.max(0,Math.floor(s)); return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); };
+
+// 乐章导航条
+const movesEl=$('moves');
+score.movements.forEach((m,i)=>{
+  const c=document.createElement('div'); c.className='chip'; c.textContent=m.name; c.style.borderColor=m.color+'66';
+  c.onclick=()=>{ seekTo(m.start); if(!playing) play(); };
+  movesEl.appendChild(c);
+});
+// 算法卡片
+const cardData=[
+  ['静谧','黄金比例 φ / 卢卡斯数列 / 谢泼德音阶','用 φ 划分乐句，卢卡斯数列驱动风铃时机，多八度叠加生成无限上升的谢泼德音调错觉。'],
+  ['萌动','生命游戏 (Game of Life) / 欧几里得节奏','二维元胞自动机每小节演化一次，存活元胞触发拨弦；Bjorklund 算法生成贝斯与旋律节奏。'],
+  ['冲突','洛伦兹混沌吸引子','积分 Lorenz 方程得到每拍混沌采样，映射为两个镜像对抗声部与轻微失谐张力。'],
+  ['爆发','曼德博集合分形','每小节在集合边界取点计算逃逸迭代次数，强度决定琶音密度与亮度，配四踩鼓与快速踩镲。'],
+  ['合一','马尔可夫链 / 主音引力','带主音强吸引的马尔可夫随机游走生成旋律，所有声部收束于纯律 C 大调终和弦。']
+];
+const cardsEl=$('algoCards');
+cardData.forEach(([t,d,p])=>{ const d0=document.createElement('div'); d0.className='card';
+  d0.innerHTML='<h3>'+t+'</h3><p><b style="color:#e8ecff">'+d+'</b><br>'+p+'</p>'; cardsEl.appendChild(d0); });
+
+function buildEngine(){
+  if(audioCtx) return;
+  audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  engine=createEngine(audioCtx, 3.0, true);
+}
+function play(){
+  buildEngine();
+  if(audioCtx.state==='suspended') audioCtx.resume();
+  if(playing) return;
+  playing=true; startCtxTime=audioCtx.currentTime+0.1; evIdx=0;
+  // 若从中间开始，跳到对应事件
+  while(evIdx<score.events.length && score.events[evIdx].t < (audioCtx.currentTime - startCtxTime)) evIdx++;
+  timer=setInterval(scheduler, 25);
+  raf=requestAnimationFrame(draw);
+  $('play').textContent='⏸ 暂停';
+  $('status').innerHTML='正在播放 · <b>'+currentMovement(audioCtx.currentTime-startCtxTime).name+'</b>';
+}
+function pause(){
+  playing=false; clearInterval(timer); cancelAnimationFrame(raf);
+  if(audioCtx) audioCtx.suspend();
+  $('play').textContent='▶ 播放';
+}
+function scheduler(){
+  const now=audioCtx.currentTime-startCtxTime, ahead=now+0.25;
+  while(evIdx<score.events.length && score.events[evIdx].t<=ahead){
+    scheduleEvent(engine, score.events[evIdx], startCtxTime+score.events[evIdx].t);
+    evIdx++;
+  }
+  if(evIdx>=score.events.length && now>score.duration){ pause(); }
+}
+function seekTo(sec){
+  if(!audioCtx){ buildEngine(); }
+  startCtxTime=audioCtx.currentTime+0.05-sec; evIdx=0;
+  while(evIdx<score.events.length && score.events[evIdx].t<sec) evIdx++;
+  if(!playing) play();
+}
+function currentMovement(sec){
+  for(const m of score.movements) if(sec>=m.start && sec<m.start+m.len) return m;
+  return score.movements[score.movements.length-1];
+}
+
+// 可视化：频谱 + 音高丝带
+const viz=$('viz'), vctx=viz.getContext('2d');
+function resizeViz(){ viz.width=viz.clientWidth*devicePixelRatio; viz.height=240*devicePixelRatio; }
+window.addEventListener('resize', resizeViz); resizeViz();
+function draw(){
+  raf=requestAnimationFrame(draw);
+  const W=viz.width, H=viz.height; vctx.clearRect(0,0,W,H);
+  vctx.fillStyle='#05060c'; vctx.fillRect(0,0,W,H);
+  const now=audioCtx? (audioCtx.currentTime-startCtxTime):0;
+  const mv=currentMovement(Math.max(0,now));
+  // 频谱
+  if(engine&&engine.analyser){
+    const a=engine.analyser, N=a.frequencyBinCount, data=new Uint8Array(N);
+    a.getByteFrequencyData(data);
+    const bars=96, bw=W/bars;
+    for(let i=0;i<bars;i++){
+      const v=data[Math.floor(i/bars*N*0.6)]/255;
+      const h=v*H*0.7;
+      const grd=vctx.createLinearGradient(0,H,0,H-h);
+      grd.addColorStop(0, mv.color+'22'); grd.addColorStop(1, mv.color);
+      vctx.fillStyle=grd; vctx.fillRect(i*bw+1, H-h, bw-2, h);
+    }
+  }
+  // 音高丝带（对数频率 → y，时间 → x）
+  vctx.strokeStyle=mv.color+'aa'; vctx.lineWidth=2*devicePixelRatio; vctx.beginPath();
+  let started=false;
+  for(const ev of score.events){
+    if(ev.voice==='kick'||ev.voice==='snare'||ev.voice==='hat'||ev.voice==='pad'||ev.voice==='bass') continue;
+    if(ev.t<now-4||ev.t>now+0.2) continue;
+    const f=ev.freq; const y=H-(Math.log2(f/100)/Math.log2(8))*H*0.8-10*devicePixelRatio;
+    const x=((ev.t-(now-4))/4)*W;
+    if(!started){ vctx.moveTo(x,y); started=true; } else vctx.lineTo(x,y);
+  }
+  vctx.stroke();
+  // 当前乐章标题
+  vctx.fillStyle=mv.color; vctx.font=(14*devicePixelRatio)+'px sans-serif';
+  vctx.fillText(mv.name+'   ·   '+mv.algo, 14*devicePixelRatio, 24*devicePixelRatio);
+  // 时钟
+  $('clock').textContent=fmt(Math.max(0,now))+' / '+fmt(score.duration);
+  // 高亮乐章 chip
+  [...movesEl.children].forEach((c,i)=>c.classList.toggle('active', score.movements[i]===mv));
+}
+
+// 控制
+$('play').onclick=()=>{ playing?pause():play(); };
+$('vol').oninput=e=>{ const v=parseFloat(e.target.value); if(engine) engine.master.gain.value=v; };
+
+// 导出 WAV（离线渲染整曲）
+$('export').onclick=async ()=>{
+  const btn=$('export'); btn.textContent='渲染中…'; btn.disabled=true;
+  try{
+    const sr=44100;
+    const off=new OfflineAudioContext(2, Math.ceil(score.duration*sr)+sr, sr);
+    const eng=createEngine(off, 3.0, false);
+    for(const ev of score.events) scheduleEvent(eng, ev, ev.t);
+    const rendered=await off.startRendering();
+    const wav=encodeWAV(rendered);
+    const url=URL.createObjectURL(new Blob([wav],{type:'audio/wav'}));
+    const a=document.createElement('a'); a.href=url; a.download='万籁同源_Universal_Resonance.wav'; a.click();
+    $('status').innerHTML='已导出 WAV · <b>'+ (rendered.duration).toFixed(1) +' 秒</b> · 采样率 44.1kHz / 16bit。';
+  }catch(err){ $('status').textContent='导出失败：'+err.message; }
+  btn.textContent='⭳ 导出 WAV'; btn.disabled=false;
+};
+function encodeWAV(buffer){
+  const numCh=buffer.numberOfChannels, sr=buffer.sampleRate, len=buffer.length;
+  const left=buffer.getChannelData(0), right=numCh>1?buffer.getChannelData(1):left;
+  const bytes=len*numCh*2, ab=new ArrayBuffer(44+bytes), dv=new DataView(ab);
+  const ws=(o,s)=>{ for(let i=0;i<s.length;i++) dv.setUint8(o+i, s.charCodeAt(i)); };
+  ws(0,'RIFF'); dv.setUint32(4,36+bytes,true); ws(8,'WAVE'); ws(12,'fmt ');
+  dv.setUint32(16,16,true); dv.setUint16(20,1,true); dv.setUint16(22,numCh,true);
+  dv.setUint32(24,sr,true); dv.setUint32(28,sr*numCh*2,true); dv.setUint16(32,numCh*2,true);
+  dv.setUint16(34,16,true); ws(36,'data'); dv.setUint32(40,bytes,true);
+  let o=44;
+  for(let i=0;i<len;i++){
+    let l=Math.max(-1,Math.min(1,left[i])), r=Math.max(-1,Math.min(1,right[i]));
+    dv.setInt16(o, l<0?l*0x8000:l*0x7FFF, true); o+=2;
+    dv.setInt16(o, r<0?r*0x8000:r*0x7FFF, true); o+=2;
+  }
+  return ab;
+}
+
+$('status').innerHTML='已就绪 · 全曲 <b>'+fmt(score.duration)+'</b> · 事件数 <b>'+score.events.length+'</b> · 点击「播放」启动音频。';
+</script>
+</body>
+</html>
